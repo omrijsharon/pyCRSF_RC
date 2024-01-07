@@ -8,11 +8,12 @@ RADIO_ADDRESS = 0xEA
 TYPE_CHANNELS = 0x16
 CRSF_DIGITAL_CHANNEL_MIN = 172
 CRSF_DIGITAL_CHANNEL_MAX = 1811
-SERIAL_BAUDRATE = 400000
-CRSF_TIME_BETWEEN_FRAMES_US = 1666 # in microseconds
+SERIAL_BAUDRATE = 115200
+CRSF_TIME_BETWEEN_FRAMES_US = 20000 # in microseconds
 ELRS_ADDRESS = 0xEE
 TYPE_SETTINGS_WRITE = 0x2D
 ADDR_RADIO = 0xEA
+CRSF_PACKET_SIZE = 26
 
 # CRC Lookup table
 crsf_crc8tab = [
@@ -47,22 +48,42 @@ class CRSF:
         self.port = serial.Serial(port, SERIAL_BAUDRATE)
 
     def crsf_prepare_data_packet(self, channels):
-        packet = bytearray([ELRS_ADDRESS, 24, TYPE_CHANNELS])
+        if len(channels) != 16:
+            raise ValueError("Channels array must have 16 elements.")
 
-        for i in range(0, 16, 2):
-            temp = channels[i] & 0x07FF
-            packet.append(temp & 0xFF)
-            temp = temp >> 8 | (channels[i + 1] & 0x07FF) << 3
-            packet.append(temp & 0xFF)
-            temp = temp >> 8 | (channels[i + 1] & 0x07FF) << 6
-            packet.append(temp & 0xFF)
-            if i + 2 < 16:
-                temp = temp >> 8 | (channels[i + 2] & 0x07FF) >> 2
-                packet.append(temp & 0xFF)
-                temp = temp >> 8 | (channels[i + 2] & 0x07FF) >> 10
-                packet.append(temp & 0xFF)
+        packet = [0] * 26
 
-        packet.append(crsf_crc8(packet[2:]))
+        # Header and length/type information
+        packet[0] = ELRS_ADDRESS & 0xFF
+        packet[1] = 24 & 0xFF
+        packet[2] = TYPE_CHANNELS & 0xFF
+
+        # Channel data
+        packet[3] = (channels[0] & 0x07FF) & 0xFF
+        packet[4] = ((channels[0] & 0x07FF) >> 8 | (channels[1] & 0x07FF) << 3) & 0xFF
+        packet[5] = ((channels[1] & 0x07FF) >> 5 | (channels[2] & 0x07FF) << 6) & 0xFF
+        packet[6] = ((channels[2] & 0x07FF) >> 2) & 0xFF
+        packet[7] = ((channels[2] & 0x07FF) >> 10 | (channels[3] & 0x07FF) << 1) & 0xFF
+        packet[8] = ((channels[3] & 0x07FF) >> 7 | (channels[4] & 0x07FF) << 4) & 0xFF
+        packet[9] = ((channels[4] & 0x07FF) >> 4 | (channels[5] & 0x07FF) << 7) & 0xFF
+        packet[10] = ((channels[5] & 0x07FF) >> 1) & 0xFF
+        packet[11] = ((channels[5] & 0x07FF) >> 9 | (channels[6] & 0x07FF) << 2) & 0xFF
+        packet[12] = ((channels[6] & 0x07FF) >> 6 | (channels[7] & 0x07FF) << 5) & 0xFF
+        packet[13] = ((channels[7] & 0x07FF) >> 3) & 0xFF
+        packet[14] = (channels[8] & 0x07FF) & 0xFF
+        packet[15] = ((channels[8] & 0x07FF) >> 8 | (channels[9] & 0x07FF) << 3) & 0xFF
+        packet[16] = ((channels[9] & 0x07FF) >> 5 | (channels[10] & 0x07FF) << 6) & 0xFF
+        packet[17] = ((channels[10] & 0x07FF) >> 2) & 0xFF
+        packet[18] = ((channels[10] & 0x07FF) >> 10 | (channels[11] & 0x07FF) << 1) & 0xFF
+        packet[19] = ((channels[11] & 0x07FF) >> 7 | (channels[12] & 0x07FF) << 4) & 0xFF
+        packet[20] = ((channels[12] & 0x07FF) >> 4 | (channels[13] & 0x07FF) << 7) & 0xFF
+        packet[21] = ((channels[13] & 0x07FF) >> 1) & 0xFF
+        packet[22] = ((channels[13] & 0x07FF) >> 9 | (channels[14] & 0x07FF) << 2) & 0xFF
+        packet[23] = ((channels[14] & 0x07FF) >> 6 | (channels[15] & 0x07FF) << 5) & 0xFF
+        packet[24] = ((channels[15] & 0x07FF) >> 3) & 0xFF
+
+        # CRC
+        packet[25] = crsf_crc8(packet[2:])
         return packet
 
     def crsf_prepare_cmd_packet(self, command, value):

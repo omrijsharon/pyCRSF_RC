@@ -42,3 +42,6 @@ def read_gamepad_and_map2channels(rc, channel_map='AETR'): # channel map can be 
     else:
         raise ValueError('channel_map must be either "AETR" or "TAER"')
     return channels
+
+if __name__ == '__main__':
+    print_ports()
